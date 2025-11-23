@@ -32,7 +32,6 @@ import (
 	"github.com/tailscale/setec/server"
 	"github.com/tailscale/setec/types/api"
 	"github.com/tink-crypto/tink-go-awskms/v2/integration/awskms"
-	"github.com/tink-crypto/tink-go/v2/testutil"
 	"github.com/tink-crypto/tink-go/v2/tink"
 	"golang.org/x/term"
 	"tailscale.com/tsnet"
@@ -185,11 +184,6 @@ func runServer(env *command.Env) error {
 		}
 		if serverArgs.Hostname == "" {
 			serverArgs.Hostname = "setec-dev"
-		}
-		if serverArgs.KMSKeyName == "" {
-			kek = &testutil.DummyAEAD{
-				Name: "SetecDevOnlyDummyEncryption",
-			}
 		}
 		log.Printf("dev mode: state dir is %q", serverArgs.StateDir)
 		log.Printf("dev mode: hostname is %q", serverArgs.Hostname)
