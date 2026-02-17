@@ -4,7 +4,6 @@
 package setec
 
 import (
-	"context"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -21,7 +20,7 @@ func TestWatcher(t *testing.T) {
 	hs := httptest.NewServer(ts.Mux)
 	defer hs.Close()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	cli := Client{Server: hs.URL, DoHTTP: hs.Client().Do}
 
 	pollTicker := setectest.NewFakeTicker()
@@ -74,5 +73,34 @@ func TestWatcher(t *testing.T) {
 		t.Error("Watcher is unexpectedly ready after no update")
 	case <-time.After(100 * time.Millisecond):
 		// OK
+	}
+}
+
+func TestPollDisabled(t *testing.T) {
+	d := setectest.NewDB(t, nil)
+	d.MustPut(d.Superuser, "full plate", "and packing steel")
+
+	ts := setectest.NewServer(t, d, nil)
+	hs := httptest.NewServer(ts.Mux)
+	defer hs.Close()
+
+	st, err := NewStore(t.Context(), StoreConfig{
+		Client:       Client{Server: hs.URL, DoHTTP: hs.Client().Do},
+		Secrets:      []string{"full plate"},
+		PollInterval: -1, // disabled
+	})
+	if err != nil {
+		t.Fatalf("NewStore: unexpected error: %v", err)
+	}
+	defer st.Close()
+
+	// Polling should be disabled, which we check by examining the channel that
+	// ordinarily is closed when the poll goroutine exits. When polling is not
+	// enabled, it should be closed immediately upon construction.
+	select {
+	case <-st.done:
+		t.Log("Polling is correctly disabled")
+	default:
+		t.Error("Polling is unexpectedly enabled")
 	}
 }

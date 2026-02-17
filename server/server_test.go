@@ -17,16 +17,16 @@ import (
 	"github.com/tailscale/setec/audit"
 	"github.com/tailscale/setec/client/setec"
 	"github.com/tailscale/setec/db"
+	"github.com/tailscale/setec/internal/tinktestutil"
 	"github.com/tailscale/setec/server"
 	"github.com/tailscale/setec/setectest"
 	"github.com/tailscale/setec/types/api"
-	"github.com/tink-crypto/tink-go/v2/testutil"
 	"tailscale.com/client/tailscale/apitype"
 	"tailscale.com/tailcfg"
 )
 
 func TestNew(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	t.Run("NoDB", func(t *testing.T) {
 		d, err := server.New(ctx, server.Config{})
 		if err == nil {
@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "test.db")
 		_, err := server.New(ctx, server.Config{
 			DBPath:   path,
-			Key:      &testutil.DummyAEAD{Name: t.Name()},
+			Key:      &tinktestutil.DummyAEAD{Name: t.Name()},
 			AuditLog: audit.New(io.Discard),
 			Mux:      http.NewServeMux(),
 		})
@@ -47,7 +47,7 @@ func TestNew(t *testing.T) {
 	})
 	t.Run("DB", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "test.db")
-		kdb, err := db.Open(path, &testutil.DummyAEAD{Name: t.Name()}, audit.New(io.Discard))
+		kdb, err := db.Open(path, &tinktestutil.DummyAEAD{Name: t.Name()}, audit.New(io.Discard))
 		if err != nil {
 			t.Fatalf("Open database: %v", err)
 		}
@@ -69,7 +69,7 @@ func TestServerGetChanged(t *testing.T) {
 	hs := httptest.NewServer(ss.Mux)
 	defer hs.Close()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	cli := setec.Client{Server: hs.URL, DoHTTP: hs.Client().Do}
 
 	// Case 1: Fetch the active value of the secret (v1).
@@ -131,7 +131,7 @@ func TestServerStatus(t *testing.T) {
 	hs := httptest.NewServer(ss.Mux)
 	defer hs.Close()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	cli := setec.Client{Server: hs.URL, DoHTTP: hs.Client().Do}
 
 	// Note: Conditional get is exercised by TestServerGetChanged above.

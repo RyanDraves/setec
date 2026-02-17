@@ -12,8 +12,8 @@ import (
 	"github.com/tailscale/setec/acl"
 	"github.com/tailscale/setec/audit"
 	"github.com/tailscale/setec/db"
+	"github.com/tailscale/setec/internal/tinktestutil"
 	"github.com/tailscale/setec/types/api"
-	"github.com/tink-crypto/tink-go/v2/testutil"
 	"github.com/tink-crypto/tink-go/v2/tink"
 )
 
@@ -30,7 +30,7 @@ func superuser() db.Caller {
 		Permissions: acl.Rules{
 			acl.Rule{
 				Action: []acl.Action{
-					acl.ActionGet, acl.ActionInfo, acl.ActionPut, acl.ActionActivate, acl.ActionDelete,
+					acl.ActionGet, acl.ActionInfo, acl.ActionPut, acl.ActionCreateVersion, acl.ActionActivate, acl.ActionDelete,
 				},
 				Secret: []acl.Secret{"*"},
 			},
@@ -71,7 +71,7 @@ func NewDB(t *testing.T, opts *DBOptions) *DB {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "test.db")
-	key := &testutil.DummyAEAD{Name: "setectest.DB." + t.Name()}
+	key := &tinktestutil.DummyAEAD{Name: "setectest.DB." + t.Name()}
 	adb, err := db.Open(path, key, opts.auditWriter())
 	if err != nil {
 		t.Fatalf("Creating test DB: %v", err)
@@ -136,4 +136,13 @@ func (db *DB) MustList(caller db.Caller) []*api.SecretInfo {
 		db.t.Fatalf("List failed: %v", err)
 	}
 	return vs
+}
+
+// MustCreateVersion creates the specified version of the named secret or fails.
+func (db *DB) MustCreateVersion(caller db.Caller, name string, version api.SecretVersion, value string) {
+	db.t.Helper()
+
+	if err := db.Actual.CreateVersion(caller, name, version, []byte(value)); err != nil {
+		db.t.Fatalf("CreateVersion %v of %q failed: %v", version, name, err)
+	}
 }
