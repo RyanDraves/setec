@@ -29,6 +29,7 @@ import (
 	"github.com/creachadair/flax"
 	"github.com/tailscale/setec/audit"
 	"github.com/tailscale/setec/client/setec"
+	"github.com/tailscale/setec/internal/tinktestutil"
 	"github.com/tailscale/setec/server"
 	"github.com/tailscale/setec/types/api"
 	"github.com/tink-crypto/tink-go-awskms/v2/integration/awskms"
@@ -175,30 +176,6 @@ var clientArgs struct {
 }
 
 func runServer(env *command.Env) error {
-	// If KMSKeyName is a filepath, read the file contents and use that as the key name. This allows users to specify the KMS key name via a file, which can be useful in some deployment scenarios.
-	if serverArgs.KMSKeyName != "" {
-		if data, err := os.ReadFile(serverArgs.KMSKeyName); err == nil {
-			serverArgs.KMSKeyName = strings.TrimSpace(string(data))
-		}
-	}
-	// Similarly, if TS_AUTHKEY is set, read the file contents and set the environment variable. This allows users to specify the Tailscale auth key via a file, which can be useful in some deployment scenarios.
-	if path := os.Getenv("TS_AUTHKEY_PATH"); path != "" {
-		if data, err := os.ReadFile(path); err == nil {
-			os.Setenv("TS_AUTHKEY", strings.TrimSpace(string(data)))
-		}
-	}
-	// Similarly, if AWS_ACCESS_KEY_ID_PATH or AWS_SECRET_ACCESS_KEY_PATH are set, read the file contents and set the corresponding environment variables. This allows users to specify AWS credentials via files, which can be useful in some deployment scenarios.
-	if path := os.Getenv("AWS_ACCESS_KEY_ID_PATH"); path != "" {
-		if data, err := os.ReadFile(path); err == nil {
-			os.Setenv("AWS_ACCESS_KEY_ID", strings.TrimSpace(string(data)))
-		}
-	}
-	if path := os.Getenv("AWS_SECRET_ACCESS_KEY_PATH"); path != "" {
-		if data, err := os.ReadFile(path); err == nil {
-			os.Setenv("AWS_SECRET_ACCESS_KEY", strings.TrimSpace(string(data)))
-		}
-	}
-
 	var kek tink.AEAD
 	if serverArgs.Dev {
 		if serverArgs.StateDir == "" {
@@ -210,6 +187,11 @@ func runServer(env *command.Env) error {
 		}
 		if serverArgs.Hostname == "" {
 			serverArgs.Hostname = "setec-dev"
+		}
+		if serverArgs.KMSKeyName == "" {
+			kek = &tinktestutil.DummyAEAD{
+				Name: "SetecDevOnlyDummyEncryption",
+			}
 		}
 		log.Printf("dev mode: state dir is %q", serverArgs.StateDir)
 		log.Printf("dev mode: hostname is %q", serverArgs.Hostname)
